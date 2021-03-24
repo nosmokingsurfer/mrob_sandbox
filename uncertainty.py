@@ -70,6 +70,92 @@ def get_mc(T, sigma, mean=[0,0,0,0,0,0], N = 100_000):
     return poses, xi
 
 
+def get_axis_points(T, sigma, N, K = 1, index = -1, A = None):
+
+    if A is None:
+        A = cholesky(sigma)
+
+    points = np.zeros((N,6))
+    points[:,index] = np.linspace(-K, K, num = N)
+
+    points_img = (A@points.T).T
+
+    propagated = []
+
+    for i in range(len(points_img)):
+        tmp = mrob.geometry.SE3(T)
+        tmp.update_lhs(points_img[i])
+        propagated.append(tmp)
+    pts = np.array([x.t() for x in propagated])
+    pts = pts.reshape((-1,3))
+    pts = np.vstack((pts,np.array([np.nan,np.nan,np.nan]).reshape(-1,3)))
+    
+    return pts
+
+def get_circumference(T,sigma,N,K=1, index_1=-1, index_2=-1, A=None):
+    if A is None:
+        A = cholesky(sigma)
+
+    points = np.zeros((N,6))
+    points[:,index_1] = K*np.cos(np.linspace(0,2*np.pi, num = N))
+    points[:,index_2] = K*np.sin(np.linspace(0,2*np.pi, num = N))
+
+    points_img = (A@points.T).T
+
+    propagated = []
+
+    for i in range(len(points_img)):
+        tmp = mrob.geometry.SE3(T)
+        tmp.update_lhs(points_img[i])
+        propagated.append(tmp)
+    pts = np.array([x.t() for x in propagated])
+    pts = pts.reshape((-1,3))
+    pts = np.vstack((pts,np.array([np.nan,np.nan,np.nan]).reshape(-1,3)))
+    
+    return pts
+
+
+
+def sigma_visualize_3d(T, sigma, N=100, K=1):
+    N = 100
+    
+    colors = list(matplotlib.colors.CSS4_COLORS.keys())
+    
+    A = cholesky(sigma)
+
+    axes = {
+        'yaw': get_axis_points(T,sigma,N,K,0,A),
+        'pitch': get_axis_points(T,sigma,N,K,1,A),
+        'roll': get_axis_points(T,sigma,N,K,2,A),
+        'x': get_axis_points(T,sigma,N,K,3,A),
+        'y': get_axis_points(T,sigma,N,K,4,A),
+        'z': get_axis_points(T,sigma,N,K,5,A)
+    }
+
+    circumferences = {
+        'yaw vs pitch' : get_circumference(T,sigma,N,K,0,1,A),
+        'yaw vs roll' : get_circumference(T,sigma,N,K,0,2,A),
+        'yaw vs x' : get_circumference(T,sigma,N,K,0,3,A),
+        'yaw vs y' : get_circumference(T,sigma,N,K,0,4,A),
+        'yaw vs z' : get_circumference(T,sigma,N,K,0,5,A),
+
+        'pitch vs roll' : get_circumference(T,sigma,N,K,1,2,A),
+        'pitch vs x' : get_circumference(T,sigma,N,K,1,3,A),
+        'pitch vs y' : get_circumference(T,sigma,N,K,1,4,A),
+        'pitch vs z' : get_circumference(T,sigma,N,K,1,5,A),
+
+        'roll vs x' : get_circumference(T,sigma,N,K,2,3,A),
+        'roll vs y' : get_circumference(T,sigma,N,K,2,4,A),
+        'roll vs z' : get_circumference(T,sigma,N,K,2,5,A),
+
+        'x vs y' : get_circumference(T,sigma,N,K,3,4,A),
+        'x vs z' : get_circumference(T,sigma,N,K,3,5,A),
+
+        'y vs z' : get_circumference(T,sigma,N,K,4,5,A),
+    }
+
+    return axes, circumferences
+
 def sigma_visualize(T, sigma, N=100, K=[1,1], label="", color=None, ax = None):
     N = 100
     
@@ -240,6 +326,9 @@ def sigma_visualize(T, sigma, N=100, K=[1,1], label="", color=None, ax = None):
         poses = poses.reshape((-1,3))
         
         ax.plot(poses[:,0],poses[:,1],color=color)
+
+#     ax.xlabel("X")
+#     ax.ylabel("Y")
 
 def compound_mc(T_1, sigma_1, T_2, sigma_2, M = 10_000):
     
